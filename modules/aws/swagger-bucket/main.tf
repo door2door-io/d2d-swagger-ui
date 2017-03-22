@@ -1,13 +1,3 @@
-variable "region" {default = "eu-central-1"}
-variable "website_dns" {default = "apidocs.d2di.net"}
-variable "r53_zone_id" {default = "Z7BYWKOFY7ZDI"}
-variable "swagger_ui_version" {default = "v2.2.8"}
-
-provider "aws" {
-    region  = "${var.region}"
-    profile = "${var.profile}"
-}
-
 resource "aws_s3_bucket" "main" {
     region = "${var.region}"
     bucket = "${var.website_dns}"
@@ -19,10 +9,14 @@ resource "aws_s3_bucket" "main" {
     }
 }
 
+data "aws_route53_zone" "dns_zone" {
+    name = "${var.domain_name}."
+}
+
 resource "aws_route53_record" "main" {
     name    = "${var.website_dns}"
     type    = "A"
-    zone_id = "${var.r53_zone_id}"
+    zone_id = "${data.aws_route53_zone.dns_zone.zone_id}"
 
     alias {
         name                   = "${aws_s3_bucket.main.website_domain}"
@@ -37,7 +31,7 @@ curl -L https://github.com/swagger-api/swagger-ui/archive/${var.swagger_ui_versi
 mkdir -p /tmp/swagger-ui
 tar --strip-components 1 -C /tmp/swagger-ui -xf /tmp/swagger-ui.tar.gz
 
-aws s3 sync --region ${var.region} --acl public-read /tmp/swagger-ui/dist s3://${aws_s3_bucket.main.bucket} --delete
+aws s3 sync /tmp/swagger-ui/dist s3://${aws_s3_bucket.main.bucket} --region ${var.region} --acl public-read --delete --profile ${var.aws_profile}
 rm -rf /tmp/swagger-ui
 EOF
 }
